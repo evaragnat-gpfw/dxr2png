@@ -209,13 +209,13 @@ int main(int argc, char*argv[]) {
     //
     // Save to PNG
     //
-    pngpath = strdup(dxrpath);
-    pngpath = realloc(pngpath, len + 1 + 5);
-    assert(pngpath);
-
-    size_t len = strlen(pngpath);
+    size_t len = strlen(dxrpath);
     assert(len >= 4);
 
+    pngpath = malloc(len + 1 + 5);
+    assert(pngpath);
+
+    strcpy(pngpath, dxrpath);
     if (strcasecmp(pngpath + len - 4, ".DXR")) {
         fprintf(stderr, "ERROR: RAW file is not a .DXR file\n");
         return 1;
