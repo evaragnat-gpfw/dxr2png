@@ -11,9 +11,9 @@
 #include <png.h>
 
 int save_png(const char* filename,
-	     int width, int height, int bitdepth, int colortype,
-	     unsigned char* data, int pitch,
-	     int transform);
+             int width, int height, int bitdepth, int colortype,
+             unsigned char* data, int pitch,
+             int transform);
 
 // From :
 //   https://goproinc.atlassian.net/wiki/spaces/ISG/pages/18819332/DXR+file+format+specification
@@ -100,26 +100,34 @@ int main(int argc, char*argv[]) {
     FILE* fd;
     char* dxrpath;
     char* pngpath;
+    bool binning = true;  // default mode
+    int opt = 0;
 
     if (argc < 2) {
         fprintf(stderr, "ERROR: no file specified\n");
         return 1;
     }
-    if (argc < 3) {
+
+    if (strcmp(argv[1], "--no-binning") == 0) {
+       binning = false;
+       opt++;
+    }
+
+    if (argc + opt < 3) {
         fprintf(stderr, "ERROR: no plane [R,Gr,Gb,B] specified\n");
         return 1;
     }
 
-    if (strcasecmp(argv[2], "R") == 0)       plane = Bayer_R;
-    else if (strcasecmp(argv[2], "Gr") == 0) plane = Bayer_Gr;
-    else if (strcasecmp(argv[2], "Gb") == 0) plane = Bayer_Gb;
-    else if (strcasecmp(argv[2], "B") == 0)  plane = Bayer_B;
+    if (strcasecmp(argv[2 + opt], "R") == 0)       plane = Bayer_R;
+    else if (strcasecmp(argv[2 + opt], "Gr") == 0) plane = Bayer_Gr;
+    else if (strcasecmp(argv[2 + opt], "Gb") == 0) plane = Bayer_Gb;
+    else if (strcasecmp(argv[2 + opt], "B") == 0)  plane = Bayer_B;
     else {
         fprintf(stderr, "ERROR: unknown plane\n");
         return 1;
     }
 
-    dxrpath = argv[1];
+    dxrpath = argv[1 + opt];
     fd = fopen(dxrpath, "r");
     if (fd == NULL) {
         fprintf(stderr, "ERROR: failed to open file\n");
@@ -170,7 +178,7 @@ int main(int argc, char*argv[]) {
     bits = hdr.width * hdr.height * hdr.precision;
     assert(bits % 8 == 0);
 
-    png_data = (uint8_t*)malloc(hdr.width * hdr.height * sizeof(uint8_t));
+    png_data = (uint8_t*)malloc(hdr.width * hdr.height * sizeof(uint8_t) * ((binning) ? 1 : 4));
     assert(png_data);
 
     px = png_data;
@@ -194,13 +202,17 @@ int main(int argc, char*argv[]) {
 #endif
         if (off % (2 * hdr.width) < hdr.width) {
             // Gb and B
-            if (plane == Bayer_Gb)    *px++ = (b1 >> 4) & 0xFF;
-            if (plane == Bayer_B)     *px++ = (b2 >> 4) & 0xFF;
+            if (plane == Bayer_Gb) { *px++ = (b1 >> 4) & 0xFF; if (!binning) *px++ = 0; }
+            if (plane == Bayer_B)  { if (!binning) *px++ = 0; *px++ = (b2 >> 4) & 0xFF; }
+            if (plane == Bayer_R || plane == Bayer_Gr)
+                if (!binning) { *px++ = 0; *px++ = 0; }
         }
         else {
             // R and Gr
-            if (plane == Bayer_R)     *px++ = (b1 >> 4) & 0xFF;
-            if (plane == Bayer_Gr)    *px++ = (b2 >> 4) & 0xFF;
+            if (plane == Bayer_R)  { *px++ = (b1 >> 4) & 0xFF; if (!binning) *px++ = 0; }
+            if (plane == Bayer_Gr) { if (!binning) *px++ = 0; *px++ = (b2 >> 4) & 0xFF; }
+            if (plane == Bayer_Gb || plane == Bayer_B)
+                if (!binning) { *px++ = 0; *px++ = 0; }
         }
     }
 
@@ -220,18 +232,21 @@ int main(int argc, char*argv[]) {
         fprintf(stderr, "ERROR: RAW file is not a .DXR file\n");
         return 1;
     }
-    sprintf(pngpath + len - 4, "-%s.png", argv[2]);
+    sprintf(pngpath + len - 4, "-%s.png", argv[2 + opt]);
 
     printf("Saving to PNG...\n");
+
+    int png_width  = hdr.width * ((binning) ? 1 : 2);
+    int png_height = hdr.height * ((binning) ? 1 : 2);
+
     save_png(pngpath,
-	     hdr.width, hdr.height,
-	     8,
-	     PNG_COLOR_TYPE_GRAY,
-	     png_data,
-	     hdr.width, // pitch/stride
-	     PNG_TRANSFORM_IDENTITY);
-
-
+             png_width,
+             png_height,
+             8,
+             PNG_COLOR_TYPE_GRAY,
+             png_data,
+             png_width, // pitch/stride
+             PNG_TRANSFORM_IDENTITY);
 
     return 0;
 }
