@@ -95,6 +95,7 @@ int save_png(const char* filename, int width, int height,
 		     PNG_INTERLACE_NONE,       /* PNG_INTERLACE_{NONE, ADAM7 } */
 		     PNG_COMPRESSION_TYPE_BASE,
 		     PNG_FILTER_TYPE_BASE);
+	png_set_compression_level(png_ptr, 1);
 
 	row_pointers = (png_bytep*)malloc(sizeof(png_bytep) * height);
 
