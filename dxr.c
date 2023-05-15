@@ -175,7 +175,7 @@ int main(int argc, char*argv[]) {
 
     // Lot of things are hardcoded/expected
     assert(hdr.precision == 12);
-    assert(hdr.comp == 1);       // compressed
+    assert(hdr.comp == 1 || (hdr.comp == 0 && hdr.sampleType == 4));       // compressed or uncompressed
     assert(hdr.planarity == 1);  // coplanar
     assert(strcmp(hdr.type, "Bayer0") == 0);
 
@@ -191,19 +191,30 @@ int main(int argc, char*argv[]) {
     px = png_data;
 
     for (unsigned int off = 0; off < hdr.width * hdr.height * 2; off++) {
-        uint8_t buf[3];
+        uint8_t buf[4];
         uint16_t b1, b2;
+        size_t size;
 
-        n = fread(buf, 3, 1, fd);
+        // depending on supported formats (see assert above)
+        size = (hdr.comp) ? 3 : 4;
+
+        n = fread(buf, size, 1, fd);
         assert(n == 1);
 
-        // order is determined by type (here Bayer0 is Gb, B, R, Gr)
-        b1 = (uint16_t)buf[0] | ((uint16_t)buf[1] & 0x000fU) << 8;
-        b2  = ((uint16_t)buf[1] >> 4) | ((uint16_t)buf[2] << 4);
+        if (hdr.comp) {
+            // order is determined by type (here Bayer0 is Gb, B, R, Gr (in COPLANAR))
+            b1 = (uint16_t)buf[0] | ((uint16_t)buf[1] & 0x000fU) << 8;
+            b2 = ((uint16_t)buf[1] >> 4) | ((uint16_t)buf[2] << 4);
+        }
+        else {
+            b1 = (uint16_t)buf[0] | ((uint16_t)buf[1] & 0x000fU) << 8;
+            b2 = (uint16_t)buf[2] | ((uint16_t)buf[3] & 0x000fU) << 8;
+        }
 
-        // convert to 8 -bit
-        b1 = b1 >> 4;
-        b2 = b2 >> 4;
+        // convert to 8-bit
+        b1 = b1 >> (hdr.precision - 8);
+        b2 = b2 >> (hdr.precision - 8);
+
 #if 0
         printf("%5d: %d: %02x %02x %02x : %03x %03x\n",
                off,
