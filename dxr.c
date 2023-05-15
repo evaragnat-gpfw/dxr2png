@@ -47,6 +47,51 @@ struct DxrHeader {
     uint64_t rsv9;            // reserved, 0
 };
 
+enum dxr_planarity {
+    DXR_PLAN_PLANAR,
+    DXR_PLAN_COPLANAR,
+    DXR_PLAN_SEMIPLANAR
+};
+
+enum dxr_sample_types {
+    DXR_SAMPLE_UNSIGNED = 0,
+    DXR_SAMPLE_SIGNED   = 1,
+    DXR_SAMPLE_UINT8    = 2,
+    DXR_SAMPLE_INT8     = 3,
+    DXR_SAMPLE_UINT16   = 4,
+    DXR_SAMPLE_INT16    = 5,
+    DXR_SAMPLE_UINT32   = 6,
+    DXR_SAMPLE_INT32    = 7,
+    DXR_SAMPLE_UINT64   = 8,
+    DXR_SAMPLE_INT64    = 9,
+    DXR_SAMPLE_FLOAT16  = 16,
+    DXR_SAMPLE_FLOAT32  = 17,
+    DXR_SAMPLE_FLOAT64  = 18,
+};
+
+static const char* sample_types[] = {
+    [DXR_SAMPLE_UNSIGNED] = "unsigned",
+    [DXR_SAMPLE_SIGNED]   = "signed",
+    [DXR_SAMPLE_UINT8]    = "uint8",
+    [DXR_SAMPLE_INT8]     = "int8",
+    [DXR_SAMPLE_UINT16]   = "uint16",
+    [DXR_SAMPLE_INT16]    = "int16",
+    [DXR_SAMPLE_UINT32]   = "uint32",
+    [DXR_SAMPLE_INT32]    = "int32",
+    [DXR_SAMPLE_UINT64]   = "uint64",
+    [DXR_SAMPLE_INT64]    = "int64",
+    [DXR_SAMPLE_FLOAT16]  = "float16",
+    [DXR_SAMPLE_FLOAT32]  = "float32",
+    [DXR_SAMPLE_FLOAT64]  = "float64",
+};
+
+static const char* planarity[] = {
+    [DXR_PLAN_PLANAR]     = "planar",
+    [DXR_PLAN_COPLANAR]   = "coplanar",
+    [DXR_PLAN_SEMIPLANAR] = "semi-planar"
+};
+
+/*
 struct dxr_types {
     const char* type;
 } dxr_types[] = {
@@ -61,34 +106,7 @@ struct dxr_types {
     { "YUV422", },
     { "YUV420" }
 };
-
-const char* sample_types[] = {
-    "unsigned", // 0
-    "signed",
-    "uint8",
-    "int8",
-    "uint16",
-    "int16",
-    "uint32",
-    "int32",
-    "uint64",
-    "int64",   // 9
-    ""         // 10
-    ""         // 11
-    ""         // 12
-    ""         // 13
-    ""         // 14
-    ""         // 15
-    "float16", // 16
-    "float32",
-    "float64",
-};
-
-const char* planarity[] = {
-    "planar",
-    "coplanar",
-    "semi-planar"
-};
+*/
 
 int main(int argc, char*argv[]) {
     int n;
@@ -174,10 +192,10 @@ int main(int argc, char*argv[]) {
         );
 
     // Lot of things are hardcoded/expected
-    assert(hdr.precision == 12);
-    assert(hdr.comp == 1 || (hdr.comp == 0 && hdr.sampleType == 4));       // compressed or uncompressed
-    assert(hdr.planarity == 1);  // coplanar
     assert(strcmp(hdr.type, "Bayer0") == 0);
+    assert(hdr.precision == 12);
+    assert(hdr.comp || (hdr.comp == 0 && hdr.sampleType == 4));       // compressed or uncompressed
+    assert(hdr.planarity == DXR_PLAN_COPLANAR);
 
     // sizeof(header) + (planes * (width * height * bpp) / 8)
     //             64 + (     4 * ( 2784 *   2463 * 12 ) / 8)
