@@ -113,11 +113,11 @@ int main(int argc, char*argv[]) {
        opt++;
     }
     else if (strcmp(argv[1], "--help") == 0) {
-        printf("usage: dxr2png [--no-binning] filename {R,Gr,Gb,B}\n");
+        printf("usage: dxr2png [--no-binning] filename [R,Gr,Gb,B]\n");
         return 0;
     }
-    else if (strncmp(argv[1], "--", 2) == 0) {
-        fprintf(stderr, "ERROR: unknown option %s\n", argv[1]);
+    else if (strncmp(argv[1], "-", 1) == 0) {
+        fprintf(stderr, "ERROR: unknown option %s (try --help)\n", argv[1]);
         return 1;
     }
 
@@ -139,7 +139,6 @@ int main(int argc, char*argv[]) {
     fd = fopen(dxrpath, "r");
     if (fd == NULL) {
         fprintf(stderr, "ERROR: failed to open file\n");
-        fclose(fd);
         return 1;
     }
 
