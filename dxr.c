@@ -108,6 +108,28 @@ struct dxr_types {
 };
 */
 
+static FILE* fd;
+static uint8_t buf;
+
+uint16_t read_pix(uint32_t bit_offset, int precision) {
+    uint32_t val = 0;
+
+    for (int i = 0; i < precision; i++) {
+
+        if ((bit_offset + i) % 8 == 0) {
+            fread(&buf, 1, 1, fd);
+        }
+
+        uint32_t b = !!(buf & (1 << (bit_offset + i) % 8));
+
+        val |= b << i;
+    }
+    //printf("0x%02x %d\n", val, val);
+
+    return val;
+}
+
+
 int main(int argc, char*argv[]) {
     int n;
     struct DxrHeader hdr;
@@ -115,7 +137,6 @@ int main(int argc, char*argv[]) {
     uint8_t* png_data;
     uint8_t* px;
     uint8_t  planes;
-    FILE* fd;
     char* dxrpath;
     char* pngpath;
     bool binning = true;  // default mode
@@ -193,8 +214,9 @@ int main(int argc, char*argv[]) {
 
     // Lot of things are hardcoded/expected
     assert(strcmp(hdr.type, "Bayer0") == 0);
-    assert(hdr.precision == 12);
-    assert(hdr.comp || (hdr.comp == 0 && hdr.sampleType == 4));       // compressed or uncompressed
+    assert(hdr.precision == 12 || hdr.precision == 10);
+    assert((hdr.comp != 0 && hdr.sampleType == DXR_SAMPLE_UNSIGNED) ||
+           (hdr.comp == 0 && hdr.sampleType == DXR_SAMPLE_UINT16));
     assert(hdr.planarity == DXR_PLAN_COPLANAR);
 
     // sizeof(header) + (planes * (width * height * bpp) / 8)
@@ -208,47 +230,43 @@ int main(int argc, char*argv[]) {
 
     px = png_data;
 
-    for (unsigned int off = 0; off < hdr.width * hdr.height * 2; off++) {
-        uint8_t buf[4];
-        uint16_t b1, b2;
-        size_t size;
+    uint16_t precision = (hdr.comp) ? hdr.precision : 16;
 
-        // depending on supported formats (see assert above)
-        size = (hdr.comp) ? 3 : 4;
+    bits = 0;
+    for (unsigned int lines = 0; lines < hdr.height * 2; lines++) {
 
-        n = fread(buf, size, 1, fd);
-        assert(n == 1);
+        for (unsigned off = 0; off < hdr.width * 2; off += 2) {
+            uint16_t b1, b2;
 
-        if (hdr.comp) {
-            // order is determined by type (here Bayer0 is Gb, B, R, Gr (in COPLANAR))
-            b1 = (uint16_t)buf[0] | ((uint16_t)buf[1] & 0x000fU) << 8;
-            b2 = ((uint16_t)buf[1] >> 4) | ((uint16_t)buf[2] << 4);
-        }
-        else {
-            b1 = (uint16_t)buf[0] | ((uint16_t)buf[1] & 0x000fU) << 8;
-            b2 = (uint16_t)buf[2] | ((uint16_t)buf[3] & 0x000fU) << 8;
-        }
+            b1 = read_pix(off * precision, precision);
+            b2 = read_pix((off + 1) * precision, precision);
 
-        // convert to 8-bit
-        b1 = b1 >> (hdr.precision - 8);
-        b2 = b2 >> (hdr.precision - 8);
+            // convert to 8-bit
+            b1 = b1 >> (hdr.precision - 8);
+            b2 = b2 >> (hdr.precision - 8);
 
 #if 0
-        printf("%5d: %d: %02x %02x %02x : %03x %03x\n",
-               off,
-               (off % (2 * hdr.width)) / hdr.width,
-               buf[0] , buf[1], buf[2], b1, b2);
+            printf("%5d: %d: %02x %02x %02x : %03x %03x\n",
+                   off,
+                   (off % (4 * hdr.width)) / (2 * hdr.width),
+                   0, 0, 0, b1, b2);
 #endif
-        if (off % (2 * hdr.width) < hdr.width) {
-            // Gb and B
-            if (planes & Bayer_Gb || !binning) { *px++ = (planes & Bayer_Gb) ? b1 : 0; }
-            if (planes & Bayer_B  || !binning) { *px++ = (planes & Bayer_B)  ? b2 : 0; }
+            if ((bits/8 + off) % (2 * hdr.stride) < hdr.stride) {
+                // Gb and B
+                if (planes & Bayer_Gb || !binning) { *px++ = (planes & Bayer_Gb) ? b1 : 0; }
+                if (planes & Bayer_B  || !binning) { *px++ = (planes & Bayer_B)  ? b2 : 0; }
+            }
+            else {
+                // R and Gr
+                if (planes & Bayer_R  || !binning) { *px++ = (planes & Bayer_R)  ? b1 : 0; }
+                if (planes & Bayer_Gr || !binning) { *px++ = (planes & Bayer_Gr) ? b2 : 0; }
+            }
         }
-        else {
-            // R and Gr
-            if (planes & Bayer_R  || !binning) { *px++ = (planes & Bayer_R)  ? b1 : 0; }
-            if (planes & Bayer_Gr || !binning) { *px++ = (planes & Bayer_Gr) ? b2 : 0; }
-        }
+
+        bits += hdr.stride * 8;
+
+        // jump to start of next line, and over remaining bits
+        fseek(fd, sizeof(struct DxrHeader) + (bits / 8), SEEK_SET);
     }
 
     fclose(fd);
@@ -274,7 +292,7 @@ int main(int argc, char*argv[]) {
 
     printf("Saving to PNG...\n");
 
-    int png_width  = hdr.width * ((binning) ? 1 : 2);
+    int png_width  = hdr.width  * ((binning) ? 1 : 2);
     int png_height = hdr.height * ((binning) ? 1 : 2);
 
     save_png(pngpath,
