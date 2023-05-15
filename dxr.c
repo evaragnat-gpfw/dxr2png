@@ -246,8 +246,8 @@ int main(int argc, char*argv[]) {
         }
         else {
             // R and Gr
-            if (planes & Bayer_R  || !binning) { *px++ = (planes & Bayer_R) ? b1 : 0; }
-            if (planes & Bayer_Gr || !binning) { *px++ = (planes & Bayer_R) ? b2 : 0; }
+            if (planes & Bayer_R  || !binning) { *px++ = (planes & Bayer_R)  ? b1 : 0; }
+            if (planes & Bayer_Gr || !binning) { *px++ = (planes & Bayer_Gr) ? b2 : 0; }
         }
     }
 
