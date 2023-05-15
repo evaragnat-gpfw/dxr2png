@@ -93,7 +93,7 @@ int save_png(const char* filename, int width, int height,
 		     bitdepth,                 /* e.g. 8 */
 		     colortype,                /* PNG_COLOR_TYPE_{GRAY, PALETTE, RGB, RGB_ALPHA, GRAY_ALPHA, RGBA, GA} */
 		     PNG_INTERLACE_NONE,       /* PNG_INTERLACE_{NONE, ADAM7 } */
-		     PNG_COMPRESSION_TYPE_BASE,
+		     PNG_COMPRESSION_TYPE_DEFAULT,
 		     PNG_FILTER_TYPE_BASE);
 	png_set_compression_level(png_ptr, 1);
 
@@ -105,7 +105,9 @@ int save_png(const char* filename, int width, int height,
 
 	png_init_io(png_ptr, fp);
 	png_set_rows(png_ptr, info_ptr, row_pointers);
+	printf("write PNG...\n");
 	png_write_png(png_ptr, info_ptr, transform, NULL);
+	printf("write PNG: finished\n");
 
 error:
 
