@@ -2,29 +2,65 @@
 
 set -e
 
-for dxr in samples/*.dxr.gz; do
-        gunzip -cd $dxr > test.dxr
-	dxr=$(basename ${dxr%%.gz})
+DIR=$(mktemp -d /tmp/dxr2png.XXXXXX)
 
-        if ! dxr2png test.dxr > /dev/null 2>&1; then
+# Uncompressing
+for dxr in samples/*.dxr.gz; do
+	gunzip -cd $dxr > $DIR/$(basename ${dxr%%.gz})
+done
+
+for dxr in $DIR/*.dxr; do
+
+	if ! ./dxr2png $dxr > /dev/null 2>&1; then
 		echo "$dxr : - : CRASH or ASSERTION !!!"
 		continue
 	fi
 
-        MD5=$(md5sum test.png | awk '{print $1}')
+	MD5=$(md5sum ${dxr%%.dxr}.png | awk '{print $1}')
 
-        case "${dxr%%.dxr},${MD5}" in
-	blue_pattern,779c538252301bfcd7ca05271e12695d)
+	dxr=$(basename ${dxr%%.dxr})
+	case "$dxr,${MD5}" in
+	white_pattern,b9fd430f6c638daf1727083f73b14eb1)
 		;&
-	red_pattern,5baee5d3924895a1f0eafafa110fb07e)
+	blue_pattern,8f025e13d69eafd14088ec77673303bf)
 		;&
-	green_pattern,a943c8abc3157e885b569830b5ab2aac)
+	red_pattern,4633619ca306e4a0a879f5ec77d5b54c)
+		;&
+	green_pattern,18b65c55859649beb787dfb1e082a67d)
 		echo "${dxr} : $MD5 : OK"
 		;;
 	*)
-		echo "${dxr} : $MD5 : BAD checksum"
+		echo "${dxr} : $MD5 : BAD or UNKNOWN checksum"
 		;;
 	esac
 done | column -t -s':'
 
-rm -f test.dxr test.png
+echo "-----------------------------"
+
+for dxr in $DIR/{red,white}_pattern.dxr; do
+
+	for plan in R; do
+		if ! ./dxr2png $dxr $plan > /dev/null 2>&1; then
+			echo "$dxr : $plan : - : CRASH or ASSERTION !!!"
+			continue
+		fi
+
+		MD5=$(md5sum ${dxr%%.dxr}-${plan}.png | awk '{print $1}')
+
+		DXR=$(basename ${dxr%%.dxr})
+
+		case "$DXR,$plan,${MD5}" in
+		red_pattern,R,b197911f581bc4817006357edd623156)
+			;&
+		white_pattern,R,b197911f581bc4817006357edd623156)
+			echo "$DXR : $plan : $MD5 : OK"
+			;;
+		*)
+			echo "$DXR : $plan : $MD5 : BAD checksum"
+			;;
+		esac
+	done
+done | column -t -s':'
+
+# Comment to avoid loosing PNGs
+rm -fr $DIR
