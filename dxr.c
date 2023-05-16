@@ -7,6 +7,7 @@
 #include <string.h>
 //#include <strings.h>
 #include <assert.h>
+#include <byteswap.h>
 
 #include <png.h>
 
@@ -135,7 +136,7 @@ int main(int argc, char*argv[]) {
     struct DxrHeader hdr;
     unsigned int bits;
     uint8_t* png_data;
-    uint8_t* px;
+    uint16_t* px;
     uint8_t  planes;
     char* dxrpath;
     char* pngpath;
@@ -225,10 +226,10 @@ int main(int argc, char*argv[]) {
     bits = hdr.width * hdr.height * hdr.precision;
     assert(bits % 8 == 0);
 
-    png_data = (uint8_t*)malloc(hdr.width * hdr.height * sizeof(uint8_t) * ((binning) ? 1 : 4));
+    png_data = (uint8_t*) malloc(hdr.width * hdr.height * sizeof(uint16_t) * ((binning) ? 1 : 4));
     assert(png_data);
 
-    px = png_data;
+    px = (uint16_t*)png_data;
 
     uint16_t precision = (hdr.comp) ? hdr.precision : 16;
 
@@ -241,9 +242,9 @@ int main(int argc, char*argv[]) {
             b1 = read_pix(off * precision, precision);
             b2 = read_pix((off + 1) * precision, precision);
 
-            // convert to 8-bit
-            b1 = b1 >> (hdr.precision - 8);
-            b2 = b2 >> (hdr.precision - 8);
+            // PNG expect MSB first, and convert to 16-bit
+            b1 = bswap_16(b1 << (16 - hdr.precision));
+            b2 = bswap_16(b2 << (16 - hdr.precision));
 
 #if 0
             printf("%5d: %d: %02x %02x %02x : %03x %03x\n",
@@ -298,10 +299,10 @@ int main(int argc, char*argv[]) {
     save_png(pngpath,
              png_width,
              png_height,
-             8,
+             16,
              PNG_COLOR_TYPE_GRAY,
              png_data,
-             png_width, // pitch/stride
+             2 * png_width, // pitch/stride
              PNG_TRANSFORM_IDENTITY);
 
     return 0;
