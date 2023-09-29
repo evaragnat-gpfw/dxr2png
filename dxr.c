@@ -7,10 +7,10 @@
 #include <string.h>
 //#include <strings.h>
 #include <assert.h>
-#ifdef __MAC__
-	#include <libkern/OSByteOrder.h>
+#ifdef __APPLE__
+#    include <libkern/OSByteOrder.h>
 #else
-	#include <byteswap.h>
+#    include <byteswap.h>
 #endif
 
 #include <png.h>
@@ -247,12 +247,12 @@ int main(int argc, char*argv[]) {
             b2 = read_pix((off + 1) * precision, precision);
 
             // PNG expect MSB first, and convert to 16-bit
-#ifdef __MAC__
-			b1 = OSSwapInt16(b1 << (16 - hdr.precision));
-			b2 = OSSwapInt16(b2 << (16 - hdr.precision));
+#ifdef __APPLE__
+            b1 = OSSwapInt16(b1 << (16 - hdr.precision));
+            b2 = OSSwapInt16(b2 << (16 - hdr.precision));
 #else
-			b1 = bswap_16(b1 << (16 - hdr.precision));
-			b2 = bswap_16(b2 << (16 - hdr.precision));
+            b1 = bswap_16(b1 << (16 - hdr.precision));
+            b2 = bswap_16(b2 << (16 - hdr.precision));
 #endif
 
 #if 0
