@@ -7,7 +7,11 @@
 #include <string.h>
 //#include <strings.h>
 #include <assert.h>
-#include <byteswap.h>
+#ifdef __MAC__
+	#include <libkern/OSByteOrder.h>
+#else
+	#include <byteswap.h>
+#endif
 
 #include <png.h>
 
@@ -243,8 +247,13 @@ int main(int argc, char*argv[]) {
             b2 = read_pix((off + 1) * precision, precision);
 
             // PNG expect MSB first, and convert to 16-bit
-            b1 = bswap_16(b1 << (16 - hdr.precision));
-            b2 = bswap_16(b2 << (16 - hdr.precision));
+#ifdef __MAC__
+			b1 = OSSwapInt16(b1 << (16 - hdr.precision));
+			b2 = OSSwapInt16(b2 << (16 - hdr.precision));
+#else
+			b1 = bswap_16(b1 << (16 - hdr.precision));
+			b2 = bswap_16(b2 << (16 - hdr.precision));
+#endif
 
 #if 0
             printf("%5d: %d: %02x %02x %02x : %03x %03x\n",
