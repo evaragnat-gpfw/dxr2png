@@ -5,8 +5,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-//#include <strings.h>
 #include <assert.h>
+#include <libgen.h>
+
 #ifdef __APPLE__
 #    include <libkern/OSByteOrder.h>
 #else
@@ -146,6 +147,7 @@ int main(int argc, char*argv[]) {
     char* pngpath;
     bool binning = true;  // default mode
     int opt = 0;
+    bool info_only = (strcmp(basename(argv[0]), "dxrinfo") == 0);
 
     if (argc < 2) {
         fprintf(stderr, "ERROR: no file specified\n");
@@ -165,18 +167,20 @@ int main(int argc, char*argv[]) {
         return 1;
     }
 
-    if (argc + opt < 3) {
-        fprintf(stderr, "INFO: no plane [R,Gr,Gb,B] specified, extracting all planes\n");
-        planes = Bayer_ALL;
-        binning = false;
-    }
-    else if (strcasecmp(argv[2 + opt], "R") == 0)  planes = Bayer_R;
-    else if (strcasecmp(argv[2 + opt], "Gr") == 0) planes = Bayer_Gr;
-    else if (strcasecmp(argv[2 + opt], "Gb") == 0) planes = Bayer_Gb;
-    else if (strcasecmp(argv[2 + opt], "B") == 0)  planes = Bayer_B;
-    else {
-        fprintf(stderr, "ERROR: unknown plane\n");
-        return 1;
+    if (!info_only) {
+        if (argc + opt < 3) {
+            fprintf(stderr, "INFO: no plane [R,Gr,Gb,B] specified, extracting all planes\n");
+            planes = Bayer_ALL;
+            binning = false;
+        }
+        else if (strcasecmp(argv[2 + opt], "R") == 0)  planes = Bayer_R;
+        else if (strcasecmp(argv[2 + opt], "Gr") == 0) planes = Bayer_Gr;
+        else if (strcasecmp(argv[2 + opt], "Gb") == 0) planes = Bayer_Gb;
+        else if (strcasecmp(argv[2 + opt], "B") == 0)  planes = Bayer_B;
+        else {
+            fprintf(stderr, "ERROR: unknown plane\n");
+            return 1;
+        }
     }
 
     dxrpath = argv[1 + opt];
@@ -216,6 +220,8 @@ int main(int argc, char*argv[]) {
            hdr.stride,
            hdr.pedestal
         );
+    if (info_only)
+        return 0;
 
     // Lot of things are hardcoded/expected
     assert(strcmp(hdr.type, "Bayer0") == 0);
